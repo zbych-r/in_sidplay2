@@ -1,0 +1,11 @@
+A MOS 6581 SID emulator that performs a simulation of the original NMOS 6581 netlist using the perfect6502 emulator engine.
+NOTE: it will only emulate digital parts.
+
+# Credits
+* perfect6502 is written by Michael Steil and derived from the JavaScript visual6502 implementation by Greg James, Brian Silverman and Barry Silverman.
+* MOS 6581 SID schematics reverse-engineered by Leandro Nini based on silicon layouts revectorized and annotated by Tommi Lempinen.
+
+# Links
+* perfect6502 home: https://github.com/mist64/perfect6502
+* Original layouts: http://oms.wmhost.com/misc/
+* Reverse-engineering discussion: http://forum.6502.org/viewtopic.php?f=8&t=4150

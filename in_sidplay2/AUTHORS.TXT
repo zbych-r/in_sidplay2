@@ -1,0 +1,2 @@
+in_sidplay2 - the plugin to play SID songs in winamp by Zbigniew Ross
+

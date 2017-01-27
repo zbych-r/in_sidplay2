@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "in_sidplay2", "in_sidplay2.vcxproj", "{BF45EEFF-6959-449D-B3D7-98301B609489}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|Win32 = Debug|Win32
+		Release|Any CPU = Release|Any CPU
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Debug|Win32.Build.0 = Debug|Win32
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Release|Any CPU.ActiveCfg = Release|Win32
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Release|Win32.ActiveCfg = Release|Win32
+		{BF45EEFF-6959-449D-B3D7-98301B609489}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
