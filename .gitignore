@@ -1,5 +1,3 @@
-in_sidplay2\ResidFp\libsidplayfp\win32\Release
-
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
@@ -47,3 +45,8 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+ResidFp/libsidplayfp/win32/libsidplayfp.VC.db
+ResidFp/libsidplayfp/win32/Release
+ResidFp/libsidplayfp/win32/Debug
+ResidFp/in_sidplay2/Debug
+ResidFp/in_sidplay2/Release
