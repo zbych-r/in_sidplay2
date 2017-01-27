@@ -48,5 +48,9 @@ Temporary Items
 ResidFp/libsidplayfp/win32/libsidplayfp.VC.db
 ResidFp/libsidplayfp/win32/Release
 ResidFp/libsidplayfp/win32/Debug
-ResidFp/in_sidplay2/Debug
-ResidFp/in_sidplay2/Release
+ResidFp/libsidplayfp/win32/.vs
+in_sidplay2/Debug
+in_sidplay2/Release
+in_sidplay2/.vs
+in_sidplay2/in_sidplay2.VC.db
+in_sidplay2/in_sidplay2.VC.VC.opendb
