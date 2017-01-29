@@ -11,11 +11,13 @@
 //#include "subsongdlg.h"
 #include "wa_ipc.h"
 #include "ipc_pe.h"
-
+#include "helpers.h"
 
 #include <fcntl.h>
 #include <stdio.h>
 #include <io.h>
+#include <string>
+#include <vector>
 
 In_Module inmod;
 CThreadSidPlayer *sidPlayer = NULL;
@@ -207,23 +209,94 @@ int infoDlg(const char *fn, HWND hwnd)
 	return 0;
 }
 
-void replaceAll(std::string& stringToReplace, const char* stringToFind, const char* replacement)
+/**
+	Replaces occurences of string %{...} containing tokens separated by | by checking which
+	token is empty. Example: %{sr|a} it means if %sr is empty then use %a (if artist from stil is empty use
+	artist from SID file
+*/
+void conditionsReplace(std::string& formatString, const StilBlock* stilBlock, const SidTuneInfo* tuneInfo)
 {
-	size_t index = 0;
-	int toFindLen = strlen(stringToFind);
-	int replacementLen = strlen(replacement);
-	while (true) {
-		/* Locate the substring to replace. */
-		index = stringToReplace.find(stringToFind, index);
-		if (index == std::string::npos) break;
+	const int BUF_SIZE = 30;
+	std::string conditionToken;
+	int tokenBeginPos = 0;
+	int tokenEndPos = 0;
+	vector<string> tokens;
+	char toReplaceToken[BUF_SIZE];
 
-		/* Make the replacement. */
-		stringToReplace.replace(index, toFindLen, replacement);
+	while ((tokenBeginPos = formatString.find("%{", tokenBeginPos)) >= 0)
+	{
+		tokenEndPos = formatString.find('}', tokenBeginPos);
+		if (tokenEndPos < 0)
+		{
+			break;
+		}
+		conditionToken = formatString.substr(tokenBeginPos + 2, tokenEndPos - tokenBeginPos - 2);
+		sprintf(toReplaceToken, "%%{%s}", conditionToken.c_str());
 
-		/* Advance index forward so the next iteration doesn't pick it up as well. */
-		index += replacementLen;
+		if (!conditionToken.empty())
+		{
+			tokens = split(conditionToken, '|');
+			for (vector<string>::iterator it = tokens.begin(); it != tokens.end(); ++it)
+			{
+				
+				if ((*it).compare("f") == 0)
+				{
+					replaceAll(formatString, toReplaceToken, "%f");
+					break;
+				}
+				if (((*it).compare("t") == 0)&&(strlen(tuneInfo->infoString(0)) > 0))
+				{
+					replaceAll(formatString, toReplaceToken, "%t");
+					break;
+				}
+				if (((*it).compare("a") == 0) && (strlen(tuneInfo->infoString(1)) > 0))
+				{
+					replaceAll(formatString, toReplaceToken, "%a");
+					break;
+				}
+				if (((*it).compare("r") == 0) && (strlen(tuneInfo->infoString(2)) > 0))
+				{
+					replaceAll(formatString, toReplaceToken, "%r");
+					break;
+				}
+				if ((*it).compare("x") == 0)
+				{
+					replaceAll(formatString, toReplaceToken, "%x");
+					break;
+				}
+
+				if (((*it).compare("sr") == 0) && (stilBlock != NULL) && (!stilBlock->ARTIST.empty()))
+				{
+					replaceAll(formatString, toReplaceToken, "%sr");
+					break;
+				}
+				if (((*it).compare("st") == 0) && (stilBlock != NULL) && (!stilBlock->TITLE.empty()))
+				{
+					replaceAll(formatString, toReplaceToken, "%st");
+					break;
+				}
+				if (((*it).compare("sa") == 0) && (stilBlock != NULL) && (!stilBlock->AUTHOR.empty()))
+				{
+					replaceAll(formatString, toReplaceToken, "%sa");
+					break;
+				}
+				if (((*it).compare("sn") == 0) && (stilBlock != NULL) && (!stilBlock->NAME.empty()))
+				{
+					replaceAll(formatString, toReplaceToken, "%sn");
+					break;
+				}
+			}
+			//check if condition was replaced by token, if not then make final token empty
+			if (conditionToken.at(0) != '%')
+			{
+				conditionToken.clear();
+			}
+		}
+
+		++tokenBeginPos;
 	}
 }
+
 
 // this is an odd function. it is used to get the title and/or
 // length of a track.
@@ -331,9 +404,20 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	int cutEnd = fileNameOnly.find_last_of(".");
 	fileNameOnly = fileNameOnly.substr(cutStart + 1, cutEnd - cutStart-1);
 
+
 	//std::string titleTemplate("%f / %a / %x %sn");
 	std::string titleTemplate(sidPlayer->GetCurrentConfig().playlistFormat);
 	std::string subsongTemplate(sidPlayer->GetCurrentConfig().subsongFormat);
+
+
+	//fill STIL data if necessary
+	const StilBlock* sb;// = NULL;
+	if (sidPlayer->GetCurrentConfig().useSTILfile == true)
+	{
+		sb = sidPlayer->GetSTILData2(strFilename.c_str(), subsongIndex - 1);
+	}
+	conditionsReplace(titleTemplate, sb, info);
+
 	replaceAll(titleTemplate, "%f", fileNameOnly.c_str());
 	replaceAll(titleTemplate, "%t", info->infoString(0));
 	replaceAll(titleTemplate, "%a", info->infoString(1));
@@ -352,30 +436,19 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	}
 
 	//fill STIL data if necessary
-	if (sidPlayer->GetCurrentConfig().useSTILfile == true)
-	{
-		const StillBlock* sb = sidPlayer->GetSTILData2(strFilename.c_str(), subsongIndex - 1);
-		if (sb == NULL)
-		{
-			replaceAll(titleTemplate, "%sr", "");
-			replaceAll(titleTemplate, "%sa", "");
-			replaceAll(titleTemplate, "%st", "");
-			replaceAll(titleTemplate, "%sn", "");
-		}
-		else
-		{			
-			replaceAll(titleTemplate, "%sr", sb->ARTIST.c_str());
-			replaceAll(titleTemplate, "%st", sb->TITLE.c_str());
-			replaceAll(titleTemplate, "%sa", sb->AUTHOR.c_str());
-			replaceAll(titleTemplate, "%sn", sb->NAME.c_str());
-		}
-	}
-	else
+	if (sb == NULL)
 	{
 		replaceAll(titleTemplate, "%sr", "");
 		replaceAll(titleTemplate, "%sa", "");
 		replaceAll(titleTemplate, "%st", "");
 		replaceAll(titleTemplate, "%sn", "");
+	}
+	else
+	{			
+		replaceAll(titleTemplate, "%sr", sb->ARTIST.c_str());
+		replaceAll(titleTemplate, "%st", sb->TITLE.c_str());
+		replaceAll(titleTemplate, "%sa", sb->AUTHOR.c_str());
+		replaceAll(titleTemplate, "%sn", sb->NAME.c_str());
 	}
 
 	if(title != NULL) 
@@ -454,7 +527,7 @@ void eq_set(int on, char data[10], int preamp)
 extern In_Module inmod = 
 {
 	IN_VER,	// defined in IN2.H
-	"Winamp SIDPlayer (libsidplayfp) v2.1.2.1"
+	"Winamp SIDPlayer (libsidplayfp) v2.1.3.0"
 	// winamp runs on both alpha systems and x86 ones. :)
 /*#ifdef __alpha
 	"(AXP)"
@@ -509,7 +582,3 @@ In_Module* winampGetInModule2()
 {
    return &inmod;
 }
-
-
-
-

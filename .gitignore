@@ -51,6 +51,9 @@ ResidFp/libsidplayfp/win32/Debug
 ResidFp/libsidplayfp/win32/.vs
 in_sidplay2/Debug
 in_sidplay2/Release
+in_sidplay2/ipch
 in_sidplay2/.vs
 in_sidplay2/in_sidplay2.VC.db
 in_sidplay2/in_sidplay2.VC.VC.opendb
+in_sidplay2/in_sidplay2.aps
+*.user

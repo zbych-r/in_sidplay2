@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <fstream>
 
-struct StillBlock
+struct StilBlock
 {
 public:
-	StillBlock();
-	~StillBlock();
+	StilBlock();
+	~StilBlock();
 
 	std::string TITLE;
 	std::string NAME;

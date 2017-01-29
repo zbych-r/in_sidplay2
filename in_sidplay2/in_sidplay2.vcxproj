@@ -114,23 +114,25 @@
       </PrecompiledHeader>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
     </ClCompile>
+    <ClCompile Include="helpers.cpp" />
     <ClCompile Include="in_sidplay2.cpp" />
     <ClCompile Include="infoDlg.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="StillBlock.cpp" />
+    <ClCompile Include="StilBlock.cpp" />
     <ClCompile Include="ThreadSidPlayer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aboutDlg.h" />
     <ClInclude Include="c64roms.h" />
     <ClInclude Include="configDlg.h" />
+    <ClInclude Include="helpers.h" />
     <ClInclude Include="infoDlg.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="StillBlock.h" />
+    <ClInclude Include="StilBlock.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="ThreadSidPlayer.h" />
     <ClInclude Include="typesdefs.h" />

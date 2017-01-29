@@ -13,7 +13,7 @@
 #include "sidplayfp/SidTune.h"
 #include "utils/SidDatabase.h"
 
-#include "StillBlock.h"
+#include "StilBlock.h"
 
 #include "in2.h"
 #include "typesdefs.h"
@@ -45,7 +45,7 @@ private:
 	AUTHOR:
 	COMMENT:
 	*/
-	map<const char*, vector<StillBlock*>, ltstr> m_stillMap2;//,hash<const char*>,eqstr> m;
+	map<const char*, vector<StilBlock*>, ltstr> m_stillMap2;//,hash<const char*>,eqstr> m;
 
     sidplayfp *m_engine;    
 	SidTune m_tune;
@@ -96,5 +96,5 @@ public:
 	//! Moves emulation time pointer to given time
 	void SeekTo(int timeMs);
 	const char* GetSTILData(const char* filePath);
-	const StillBlock* GetSTILData2(const char* filePath, int subsong);
+	const StilBlock* GetSTILData2(const char* filePath, int subsong);
 };

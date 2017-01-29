@@ -849,8 +849,8 @@ void CThreadSidPlayer::FillSTILData2()
 	string tmpStr;
 	char buf[BUFLEN];
 	int currentSubsong;
-	StillBlock* stillBlock;
-	vector<StillBlock*> subsongsInfo;
+	StilBlock* stillBlock;
+	vector<StilBlock*> subsongsInfo;
 
 	m_stillMap2.clear();
 	FILE *f;
@@ -873,7 +873,7 @@ void CThreadSidPlayer::FillSTILData2()
 			currentSubsong = 0;
 
 			ReadLine(buf, f, BUFLEN);
-			stillBlock = new StillBlock;
+			stillBlock = new StilBlock;
 			subsongsInfo = m_stillMap2[_strdup(strKey.c_str())];
 			subsongsInfo.push_back(NULL);
 			while (strlen(buf) > 0)
@@ -894,7 +894,7 @@ void CThreadSidPlayer::FillSTILData2()
 						{
 							subsongsInfo.push_back(NULL);
 						}
-						stillBlock = new StillBlock;
+						stillBlock = new StilBlock;
 					}
 				}
 				//ARTIST
@@ -966,9 +966,9 @@ const char* CThreadSidPlayer::GetSTILData(const char* filePath)
 	//if(i == NULL) return;
 }
 
-const StillBlock* CThreadSidPlayer::GetSTILData2(const char* filePath, int subsong)
+const StilBlock* CThreadSidPlayer::GetSTILData2(const char* filePath, int subsong)
 {
-	map<const char*, vector<StillBlock*>, ltstr>::iterator i;
+	map<const char*, vector<StilBlock*>, ltstr>::iterator i;
 	char* stilFileName;
 
 	if ((filePath == NULL) || (m_playerConfig.hvscDirectory == NULL)) return NULL;
@@ -1004,13 +1004,13 @@ void CThreadSidPlayer::ClearSTILData(void)
 	}
 	m.clear();
 
-	map<const char*, vector<StillBlock*>, ltstr>::iterator it2 = m_stillMap2.begin();
+	map<const char*, vector<StilBlock*>, ltstr>::iterator it2 = m_stillMap2.begin();
 	while (it2 != m_stillMap2.end())
 	{
 		const char *x = it2->first;
-		vector<StillBlock*> y = it2->second;
+		vector<StilBlock*> y = it2->second;
 		delete[] it2->first;
-		for (vector<StillBlock*>::iterator it3 = y.begin(); it3 != y.end(); ++it3)
+		for (vector<StilBlock*>::iterator it3 = y.begin(); it3 != y.end(); ++it3)
 		{
 			if ((*it3) != NULL)
 			{
