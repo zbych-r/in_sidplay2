@@ -21,7 +21,20 @@
 
 In_Module inmod;
 CThreadSidPlayer *sidPlayer = NULL;
+HANDLE gUpdaterThreadHandle = 0;
+HANDLE gMutex = 0;
 
+DWORD AddSubsongsThreadProc(void* params);
+
+/** Structure for passing parameters to worker thread for adding subsong
+*/
+typedef struct tAddSubsongParams
+{
+	int numSubsongs;
+	int foundIndex;
+	int startSong;
+	char fileName[512];
+};
 
 void config(HWND hwndParent)
 {
@@ -60,13 +73,21 @@ void init()
 	sidPlayer = new CThreadSidPlayer(inmod);
 	sidPlayer->Init();
 
-
+	gMutex = CreateMutex(NULL, FALSE, NULL);
 
 
 }
 
 void quit() { 
 	/* one-time deinit, such as memory freeing */ 
+	if (gMutex != 0)
+	{
+		CloseHandle(gMutex);
+	}
+	if (gUpdaterThreadHandle != 0)
+	{
+		CloseHandle(gUpdaterThreadHandle);
+	}
 	if(sidPlayer != NULL)
 	{
 		sidPlayer->Stop();
@@ -322,17 +343,26 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	char* foundChar;
 	bool firstSong = true;
 
+	WaitForSingleObject(gMutex, INFINITE);
+	if (gUpdaterThreadHandle != 0)
+	{
+		CloseHandle(gUpdaterThreadHandle);
+		gUpdaterThreadHandle = 0;
+	}
+
 	if((filename == NULL) || (strlen(filename) == 0))
 	{
 		//get current song info
 		info = sidPlayer->GetTuneInfo();
 		if (info == NULL)
 		{
+			ReleaseMutex(gMutex);
 			return;
 		}
 		length = sidPlayer->GetSongLength();
 		if (length == -1)
 		{
+			ReleaseMutex(gMutex);
 			return;
 		}
 		subsongIndex = info->currentSong();//.currentSong;
@@ -361,6 +391,7 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 			info = tune.getInfo();
 			if (info == NULL)
 			{
+				ReleaseMutex(gMutex);
 				return;
 			}
 			subsongIndex = tune.getInfo()->startSong();
@@ -371,14 +402,18 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		length = sidPlayer->GetSongLength(tune);
 		if (length == -1)
 		{
+			ReleaseMutex(gMutex);
 			return;
 		}
 	}
 	
 	//check if we got correct tune info
 	//if (info.c64dataLen == 0) return;
-	if (info->c64dataLen() == 0) return;
-
+	if (info->c64dataLen() == 0)
+	{
+		ReleaseMutex(gMutex);
+		return;
+	}
  	length *= 1000;
 	if( length <0) length =0;
 	if(length_in_ms != NULL) *length_in_ms = length;
@@ -411,10 +446,14 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 
 
 	//fill STIL data if necessary
-	const StilBlock* sb;// = NULL;
+	const StilBlock* sb = NULL;
 	if (sidPlayer->GetCurrentConfig().useSTILfile == true)
 	{
 		sb = sidPlayer->GetSTILData2(strFilename.c_str(), subsongIndex - 1);
+	}
+	else
+	{
+		sb = NULL;
 	}
 	conditionsReplace(titleTemplate, sb, info);
 
@@ -454,8 +493,11 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	if(title != NULL) 
 		strcpy(title, titleTemplate.c_str());
 
-	if((info->songs() == 1)||(firstSong == false)||(filename == NULL)||(strlen(filename) == 0)) 
+	if ((info->songs() == 1) || (firstSong == false) || (filename == NULL) || (strlen(filename) == 0))
+	{
+		ReleaseMutex(gMutex);
 		return;
+	}
 
 	//we have subsongs...
 	plLength = (int)SendMessage(inmod.hMainWindow,WM_WA_IPC,0,IPC_GETLISTLENGTH);
@@ -468,6 +510,7 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		if(strcmp(foundChar+1,filename) == 0)
 		{
 			//subtunes were added no point to do it again
+			ReleaseMutex(gMutex);
 			return;
 		}
 	}	
@@ -485,32 +528,55 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		}
 	}	
 
+	//run another thread for adding subsongs
+	tAddSubsongParams *threadParams = new tAddSubsongParams();
+	threadParams->foundIndex = foundindex;
+	threadParams->numSubsongs = info->songs();
+	threadParams->startSong = info->startSong();
+	strcpy(threadParams->fileName, filename);
+	gUpdaterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)AddSubsongsThreadProc, (void*)threadParams, 0, NULL);
+	ReleaseMutex(gMutex);
+	return;
+}
+
+DWORD AddSubsongsThreadProc(void* params)
+{
+	WaitForSingleObject(gMutex, INFINITE);
+
 	fileinfo *fi = new fileinfo;
 	COPYDATASTRUCT *cds = new COPYDATASTRUCT;
+	std::string strFilename;
+	char buf[20];
+	tAddSubsongParams* threadParams = reinterpret_cast<tAddSubsongParams*>(params);
+	int foundindex = threadParams->foundIndex;
 	//get HWND of playlist window
-	h=(HWND)SendMessage(inmod.hMainWindow,WM_WA_IPC,IPC_GETWND_PE,IPC_GETWND);
-	for(int i=1; i<=info->songs(); ++i )
+	HWND h = (HWND)SendMessage(inmod.hMainWindow, WM_WA_IPC, IPC_GETWND_PE, IPC_GETWND);
+	for (int i = 1; i <= threadParams->numSubsongs; ++i)
 	{
 		//first entry in playlist will be the startSong that is why we don't add it
-		if (i == info->startSong())
+		if (i == threadParams->startSong)
 		{
 			continue;
 		}
 		++foundindex;
-		sprintf(buf,"{%d}",i);
+		sprintf(buf, "{%d}", i);
 		strFilename.assign(buf);
-		strFilename.append(filename);
-		ZeroMemory(fi,sizeof(fileinfo));
-		strcpy(fi->file , strFilename.c_str());
+		strFilename.append(threadParams->fileName);
+		ZeroMemory(fi, sizeof(fileinfo));
+		strcpy(fi->file, strFilename.c_str());
 		fi->index = foundindex;
-		ZeroMemory(cds,sizeof(COPYDATASTRUCT));
+		ZeroMemory(cds, sizeof(COPYDATASTRUCT));
 		cds->dwData = IPC_PE_INSERTFILENAME;
 		cds->lpData = fi;
 		cds->cbData = sizeof(fileinfo);
-		SendMessage(h,WM_COPYDATA,0,(LPARAM)cds);
+		SendMessage(h, WM_COPYDATA, 0, (LPARAM)cds);
 	}
 	delete fi;
 	delete cds;
+	delete threadParams;
+
+	ReleaseMutex(gMutex);
+	return 0;
 }
 
 void eq_set(int on, char data[10], int preamp) 
@@ -527,7 +593,7 @@ void eq_set(int on, char data[10], int preamp)
 extern In_Module inmod = 
 {
 	IN_VER,	// defined in IN2.H
-	"Winamp SIDPlayer (libsidplayfp) v2.1.3.0"
+	"Winamp SIDPlayer (libsidplayfp) v2.1.4.0"
 	// winamp runs on both alpha systems and x86 ones. :)
 /*#ifdef __alpha
 	"(AXP)"

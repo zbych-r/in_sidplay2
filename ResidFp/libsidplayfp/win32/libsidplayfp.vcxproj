@@ -22,7 +22,7 @@
     <ProjectGuid>{173CDD4C-D1E7-405D-95D9-04E5C10CD232}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>libsidplayfp</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
