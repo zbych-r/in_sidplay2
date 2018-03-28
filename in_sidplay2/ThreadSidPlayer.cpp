@@ -729,6 +729,11 @@ int CThreadSidPlayer::GetSongLength(SidTune &tune)
 	{
 		length = m_playerConfig.playLimitSec;
 	}
+	
+	if (length < 0)
+	{
+		return 0;
+	}
 	return length;
 }
 

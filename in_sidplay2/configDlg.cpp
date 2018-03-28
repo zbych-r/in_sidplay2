@@ -24,6 +24,7 @@ void ConfigDlgInitDialog(HWND hWnd)
 
 
 	//FREQ
+	SendDlgItemMessage(hWnd, IDC_FREQUENCY, CB_ADDSTRING, 0, (LPARAM)L"48000");
 	SendDlgItemMessage(hWnd,IDC_FREQUENCY,CB_ADDSTRING,0,(LPARAM)L"44100");
 	SendDlgItemMessage(hWnd,IDC_FREQUENCY,CB_ADDSTRING,0,(LPARAM)L"22050");
 	SendDlgItemMessage(hWnd,IDC_FREQUENCY,CB_ADDSTRING,0,(LPARAM)L"11025");
@@ -46,16 +47,19 @@ void ConfigDlgInitDialog(HWND hWnd)
 
 	//set values:
 	//freq
-	switch(playerConfig->sidConfig.frequency)
+	switch (playerConfig->sidConfig.frequency)
 	{
-	case 44100:
+	case 48000:
 		val = 0;
 		break;
+	case 44100:
+		val = 1;
+		break;
 	case 22050:
-		val=1;
+		val = 2;
 		break;
 	case 11025:
-		val=2;
+		val = 3;
 		break;
 	}
 	SendDlgItemMessage(hWnd,IDC_FREQUENCY,CB_SETCURSEL,(WPARAM)val,0);
@@ -149,12 +153,15 @@ void UpdateConfig(HWND hWnd)
 	switch(val)
 	{
 	case 0:
-		playerConfig->sidConfig.frequency = 44100;
+		playerConfig->sidConfig.frequency = 48000;
 		break;
 	case 1:
-		playerConfig->sidConfig.frequency = 22050;
+		playerConfig->sidConfig.frequency = 44100;
 		break;
 	case 2:
+		playerConfig->sidConfig.frequency = 22050;
+		break;
+	case 3:
 		playerConfig->sidConfig.frequency = 11025;
 		break;
 	}
