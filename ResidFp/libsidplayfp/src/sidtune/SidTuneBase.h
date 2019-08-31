@@ -31,6 +31,8 @@
 #include "sidplayfp/SidTuneInfo.h"
 #include "sidplayfp/siddefs.h"
 
+#include "sidplayfp/sidtune.h"	//ZR added for friend access
+
 #include "SmartPtr.h"
 #include "SidTuneInfoImpl.h"
 
@@ -59,6 +61,7 @@ public:
  */
 class SidTuneBase
 {
+	friend class SidTune;
 protected:
     typedef std::vector<uint8_t> buffer_t;
 

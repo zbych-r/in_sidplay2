@@ -24,6 +24,8 @@
 
 #include "sidcxx11.h"
 
+#include "sidmd5.h"
+
 using namespace libsidplayfp;
 
 const char MSG_NO_ERRORS[] = "No errors";
@@ -129,9 +131,32 @@ bool SidTune::placeSidTuneInC64mem(sidmemory& mem)
 }
 
 const char* SidTune::createMD5(char *md5)
-{
+{	
     return tune.get() != nullptr ? tune->createMD5(md5) : nullptr;
 }
+
+const char* SidTune::createMD5New(char *md5)
+{
+	if (md5 == nullptr)
+		md5 = m_md5;
+	*md5 = '\0';
+
+	if (tune.get() != nullptr)
+	{
+		sidmd5 myMD5;
+		SidTuneBase *tuneBase = tune.get();
+		myMD5.append(tuneBase->cache.data(), tuneBase->cache.size());
+		myMD5.finish();
+		// Get fingerprint.
+		myMD5.getDigest().copy(md5, SidTune::MD5_LENGTH);
+		md5[SidTune::MD5_LENGTH] = '\0';
+
+	}
+	else
+		return nullptr;
+	return md5;
+}
+
 const uint_least8_t* SidTune::c64Data() const
 {
     return tune.get() != nullptr ? tune->c64Data() : nullptr;

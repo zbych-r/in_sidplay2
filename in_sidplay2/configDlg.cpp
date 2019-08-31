@@ -262,7 +262,7 @@ void SelectHvscFile(HWND hWnd)
 	size_t pathLen;
 
 
-	if(GetFileNameFromBrowse(hWnd,path,MAX_PATH,L"c:\\",L"txt",L"Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0\0",
+	if (GetFileNameFromBrowse(hWnd, path, MAX_PATH, L"c:\\", L"txt", L"MD5 song lenght file (*.md5)\0*.md5\0Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0\0",
 		L"Select song length db file") != TRUE) return;
 	if(playerConfig->songLengthsFile != NULL) delete[] playerConfig->songLengthsFile;
 	pathLen = wcslen(path)+1;

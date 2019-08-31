@@ -37,7 +37,10 @@ private:
 
     int_least32_t parseTimeStamp (const char* arg);
     uint_least8_t timesFound     (char *str);
-
+	/**
+	 * New song length MD5 calculation
+	*/
+	bool	newSongLength;
 public:
     SidDatabase  () : database (0) {;}
     ~SidDatabase ();

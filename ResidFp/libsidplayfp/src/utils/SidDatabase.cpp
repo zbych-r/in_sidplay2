@@ -93,6 +93,15 @@ int SidDatabase::open (const char *filename)
 {
     close ();
     database = ini_open (filename, "r", ";");
+	size_t nameLen = strlen(filename);
+	if (strcmpi(&filename[nameLen - 3], "md5") == 0)
+	{
+		newSongLength = true;
+	}
+	else
+	{
+		newSongLength = false;
+	}
     if (!database)
     {
         errorString = ERR_UNABLE_TO_LOAD_DATABASE;
@@ -119,7 +128,14 @@ int_least32_t SidDatabase::length (SidTune &tune)
         errorString = ERR_NO_SELECTED_SONG;
         return -1;
     }
-    tune.createMD5 (md5);
+	if (newSongLength)
+	{
+		tune.createMD5New(md5);
+	}
+	else
+	{
+		tune.createMD5(md5);
+	}
     return length  (md5, song);
 }
 
