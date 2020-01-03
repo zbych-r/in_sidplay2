@@ -360,11 +360,6 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 			return;
 		}
 		length = sidPlayer->GetSongLength();
-		if (length == -1)
-		{
-			ReleaseMutex(gMutex);
-			return;
-		}
 		subsongIndex = info->currentSong();//.currentSong;
 		strFilename.assign(info->path());
 		strFilename.append(info->dataFileName());
@@ -400,11 +395,6 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		//tune.selectSong(info.startSong);
 		tune.selectSong(subsongIndex);
 		length = sidPlayer->GetSongLength(tune);
-		if (length == -1)
-		{
-			ReleaseMutex(gMutex);
-			return;
-		}
 	}
 	
 	//check if we got correct tune info
@@ -414,8 +404,8 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		ReleaseMutex(gMutex);
 		return;
 	}
- 	length *= 1000;
 	if( length <0) length =0;
+	length *= 1000;
 	if(length_in_ms != NULL) *length_in_ms = length;
 	
 	/* build file title from template:
