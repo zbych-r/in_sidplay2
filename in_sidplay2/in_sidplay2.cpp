@@ -74,8 +74,6 @@ void init()
 	sidPlayer->Init();
 
 	gMutex = CreateMutex(NULL, FALSE, NULL);
-
-
 }
 
 void quit() { 
@@ -343,20 +341,12 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	char* foundChar;
 	bool firstSong = true;
 
-	WaitForSingleObject(gMutex, INFINITE);
-	if (gUpdaterThreadHandle != 0)
-	{
-		CloseHandle(gUpdaterThreadHandle);
-		gUpdaterThreadHandle = 0;
-	}
-
 	if((filename == NULL) || (strlen(filename) == 0))
 	{
 		//get current song info
 		info = sidPlayer->GetTuneInfo();
 		if (info == NULL)
 		{
-			ReleaseMutex(gMutex);
 			return;
 		}
 		length = sidPlayer->GetSongLength();
@@ -386,7 +376,6 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 			info = tune.getInfo();
 			if (info == NULL)
 			{
-				ReleaseMutex(gMutex);
 				return;
 			}
 			subsongIndex = tune.getInfo()->startSong();
@@ -401,7 +390,6 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	//if (info.c64dataLen == 0) return;
 	if (info->c64dataLen() == 0)
 	{
-		ReleaseMutex(gMutex);
 		return;
 	}
 	if( length <0) length =0;
@@ -483,13 +471,22 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	if(title != NULL) 
 		strcpy(title, titleTemplate.c_str());
 
-	if ((info->songs() == 1) || (firstSong == false) || (filename == NULL) || (strlen(filename) == 0))
+	if ((info->songs() == 1) || (firstSong == false))
 	{
-		ReleaseMutex(gMutex);
 		return;
 	}
 
 	//we have subsongs...
+	if (WaitForSingleObject(gMutex, 0))
+	{
+		return;
+	}
+	if (gUpdaterThreadHandle != 0)
+	{
+		CloseHandle(gUpdaterThreadHandle);
+		gUpdaterThreadHandle = 0;
+	}
+
 	plLength = (int)SendMessage(inmod.hMainWindow,WM_WA_IPC,0,IPC_GETLISTLENGTH);
 	//check if we have already added subsongs
 	for(i=0; i<plLength;++i)
@@ -497,7 +494,7 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 		plfilename = (char*)SendMessage(inmod.hMainWindow,WM_WA_IPC,i,IPC_GETPLAYLISTFILE);
 		if((plfilename == NULL)||(plfilename[0] != '{')) continue;		
 		foundChar = strchr(plfilename,'}');
-		if(strcmp(foundChar+1,filename) == 0)
+		if(strcmp(foundChar+1,strFilename.c_str()) == 0)
 		{
 			//subtunes were added no point to do it again
 			ReleaseMutex(gMutex);
@@ -511,7 +508,7 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	{
 		plfilename = (char*)SendMessage(inmod.hMainWindow,WM_WA_IPC,i,IPC_GETPLAYLISTFILE);
 		if(plfilename == NULL) continue;
-		if(strcmp(plfilename,filename) == 0)
+		if(strcmp(plfilename,strFilename.c_str()) == 0)
 		{
 			foundindex = i;
 			break;
@@ -523,7 +520,7 @@ void getfileinfo(const char *filename, char *title, int *length_in_ms)
 	threadParams->foundIndex = foundindex;
 	threadParams->numSubsongs = info->songs();
 	threadParams->startSong = info->startSong();
-	strcpy(threadParams->fileName, filename);
+	strcpy(threadParams->fileName, strFilename.c_str());
 	gUpdaterThreadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)AddSubsongsThreadProc, (void*)threadParams, 0, NULL);
 	ReleaseMutex(gMutex);
 	return;
