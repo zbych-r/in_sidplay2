@@ -40,7 +40,10 @@ CThreadSidPlayer::CThreadSidPlayer(In_Module& inWAmod): m_tune(0), m_threadHandl
 
 CThreadSidPlayer::~CThreadSidPlayer(void)
 {
-	if(m_decodeBufLen > 0) delete[] m_decodeBuf;
+	if (m_decodeBufLen > 0)
+	{
+		delete[] m_decodeBuf;
+	}
 	ClearSTILData();
 	if (m_engine != NULL)
 	{
@@ -51,8 +54,6 @@ CThreadSidPlayer::~CThreadSidPlayer(void)
 		}
 		delete m_engine;
 	}
-	//it = m.begin();
-//	m_sidDatabase.close();
 }
 
 void CThreadSidPlayer::Init(void)
@@ -67,7 +68,6 @@ void CThreadSidPlayer::Init(void)
 	if(!LoadConfigFromFile(&m_playerConfig))
 	{
 		//if load fails then use this default settings
-		//m_playerConfig.sidConfig.precision = 16;
 		SidConfig *defaultConf = new SidConfig;
 		memcpy((void*)&(m_playerConfig.sidConfig), defaultConf, sizeof(SidConfig));
 		
@@ -75,8 +75,6 @@ void CThreadSidPlayer::Init(void)
 		m_playerConfig.sidConfig.frequency = 44100;
 		m_playerConfig.sidConfig.playback = SidConfig::MONO;// sid2_mono;
 	}
-	//m_playerConfig.sidConfig.sampleFormat = SID2_LITTLE_SIGNED;	
-
 	SetConfig(&m_playerConfig);
 }
 
@@ -155,6 +153,9 @@ void CThreadSidPlayer::LoadTune(const char* name)
 		m_currentTuneLength = m_playerConfig.playLimitSec;
 	}
 	m_engine->load(&m_tune);
+	//init mixer with stereo or mono playback
+	m_engine->initMixer(m_playerConfig.sidConfig.playback == SidConfig::playback_t::STEREO);
+	m_engine->reset();
 	//mute must be applied after SID's have been created
 	for (int sid = 0; sid < 3; ++sid)
 	{
@@ -178,6 +179,11 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 	CThreadSidPlayer *playerObj = static_cast<CThreadSidPlayer*>(thisparam);
 	int timeElapsed;
 
+	//for debug
+	//ofstream binstream("d:\\output.bin", std::ios::binary);
+
+	
+
 	playerObj->m_decodedSampleCount = 0;
 	playerObj->m_playTimems = 0;
 	bps = PLAYBACK_BIT_PRECISION;//playerObj->m_playerConfig.sidConfig.precision;
@@ -191,16 +197,19 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 		if(playerObj->m_inmod->outMod->CanWrite() >= desiredLen)
 		{
 			//decode music data from libsidplay object
-			//pierwotnie libsidplay operowa³ na bajtach i wszystkie d³ugoœci bufora by³y w bajtach
-			//libsidplayfp operuje na samplach 16 bitowych wiêc musimy odpowiednio mni¿yæ lub dzieliæ przez 2 liczbê bajtów
-			decodedLen = 2 * playerObj->m_engine->play(reinterpret_cast<short*>(playerObj->m_decodeBuf),desiredLen / 2);
-			//playerObj->m_decodedSampleCount += decodedLen / numChn / (bps>>3);
+			//libsidplayfp operates on 16 bit samples so we have to multiply od divide by sizeof short when theres is counter in bytes
+			decodedLen = sizeof(short) * playerObj->EmulateAndDecode(desiredLen / 2, playerObj->m_decodeBuf, false);
+
+			//binstream.write(reinterpret_cast<const char*>(playerObj->m_decodeBuf), decodedLen); //for debug
+
+
 			//write it to vis subsystem
 			playerObj->m_inmod->SAAddPCMData(playerObj->m_decodeBuf,numChn,bps,playerObj->m_playTimems);
 			playerObj->m_inmod->VSAAddPCMData(playerObj->m_decodeBuf,numChn,bps,playerObj->m_playTimems);
 
 			playerObj->m_decodedSampleCount += decodedLen / numChn / (bps>>3);
-			playerObj->m_playTimems =(playerObj->m_decodedSampleCount * 1000) / playerObj->m_playerConfig.sidConfig.frequency;
+			playerObj->m_playTimems = playerObj->m_engine->timeMs();
+
 			//use DSP plugin on data
 			if(playerObj->m_inmod->dsp_isactive())
 			{
@@ -210,20 +219,17 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 			}
 			playerObj->m_inmod->outMod->Write(playerObj->m_decodeBuf,decodedLen);
 		}
-		else
-		{
+		//else
+		//{
 			//do we need to seek ??
 			if(playerObj->m_seekNeedMs > 0) 
 				playerObj->DoSeek();
-			else
-				Sleep(20);
-		}
+		//	else
+		//		Sleep(20);
+		//}
 
-		//timeElapsed = playerObj->GetPlayTime();
-		//timeElapsed = playerObj->m_inmod->outMod->GetOutputTime();
 		timeElapsed = playerObj->m_playTimems;
-		//if we konw the song length and timer just reached it then go to next song
-		
+		//if we konw the song length and timer just reached it then go to next song		
 		if(playerObj->GetSongLength() >= 1)
 		{
 			if(playerObj->GetSongLength()*1000 < timeElapsed)
@@ -247,8 +253,48 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 			}
 		//no song length, and no length limit so play for infinity
 	}
+
+	//binstream.close(); //for debug
 	
 	return 0;
+}
+
+
+int CThreadSidPlayer::EmulateAndDecode(int desiredSamples, char* buf, bool seekOnly)
+{
+
+	const int ONE_STEP_CYCLES = 4000;
+	const int SAMPLE_PER_1000_CYCLES_PER_8KHZ = 8;
+	const int TOTAL_SAMPLE_MULTIPLIER = SAMPLE_PER_1000_CYCLES_PER_8KHZ * (ONE_STEP_CYCLES / 1000); 
+	int oneStepSamples = (m_playerConfig.sidConfig.frequency / 8000) * TOTAL_SAMPLE_MULTIPLIER;
+	int loops = (desiredSamples / oneStepSamples);
+
+	char* bufPtr = buf;
+	int decodedSamples;
+	int totalDecodedSamples = 0;
+	int mixed = 0;
+	if (loops == 0)
+	{
+		loops = 1;
+	}
+
+	for(int i=0; i< loops; ++i)
+	{
+		decodedSamples = m_engine->play(ONE_STEP_CYCLES);
+		if (decodedSamples > 0 && !seekOnly)
+		{
+			mixed = m_engine->mix(reinterpret_cast<short*>(bufPtr), decodedSamples);
+			//cout << "Mix: " << mixed << endl;
+			bufPtr += (mixed * sizeof(short));
+			totalDecodedSamples += mixed;
+		}
+		else
+		{
+			//cout << "ERROR:" << sidplay->error() << endl;
+		}
+
+	}
+	return totalDecodedSamples;
 }
 
 int CThreadSidPlayer::CurrentSubtune(void)
@@ -269,6 +315,15 @@ void CThreadSidPlayer::PlaySubtune(int subTune)
 	}
 	m_engine->stop();
 	m_engine->load(&m_tune);
+	m_engine->initMixer(m_playerConfig.sidConfig.playback == SidConfig::playback_t::STEREO);
+	m_engine->reset();
+	for (int sid = 0; sid < 3; ++sid)
+	{
+		for (int voice = 0; voice < 3; ++voice)
+		{
+			m_engine->mute(sid, voice, !m_playerConfig.voiceConfig[sid][voice]);
+		}
+	}
 	Play();
 }
 
@@ -531,25 +586,6 @@ void CThreadSidPlayer::AssignConfigValue(PlayerConfig* plconf,string token, stri
 const PlayerConfig& CThreadSidPlayer::GetCurrentConfig()
 {
 	return m_playerConfig;
-	/*
-	PlayerConfig cfgcpy;
-	memcpy(&cfgcpy,&m_playerConfig,sizeof(PlayerConfig));
-	cfgcpy.sidConfig.sidEmulation = NULL;
-	if(m_playerConfig.songLengthsFile != NULL)
-	{
-		cfgcpy.songLengthsFile = new char[strlen(m_playerConfig.songLengthsFile)+1];
-		strcpy(cfgcpy.songLengthsFile,m_playerConfig.songLengthsFile);
-	}
-	else cfgcpy.songLengthsFile = NULL;
-	if(m_playerConfig.hvscDirectory != NULL)
-	{
-		cfgcpy.hvscDirectory = new char[strlen(m_playerConfig.hvscDirectory)+1];
-		strcpy(cfgcpy.hvscDirectory,m_playerConfig.hvscDirectory);
-	}
-	else cfgcpy.hvscDirectory = NULL;
-
-	return cfgcpy;
-	*/
 }
 
 void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
@@ -557,20 +593,24 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 	int numChann;
 	bool openRes;
 
-	if(m_playerStatus != SP_STOPPED) Stop();
+	if (m_playerStatus != SP_STOPPED)
+	{
+		Stop();
+	}
 	m_engine->stop();
 
 	sidbuilder* currentBuilder = m_playerConfig.sidConfig.sidEmulation;
+
 	if (m_playerConfig.sidConfig.sidEmulation != NULL)
 	{
 		//delete m_playerConfig.sidConfig.sidEmulation;
 	}
-	m_playerConfig.sidConfig.sidEmulation = 0;
-	m_engine->config(m_playerConfig.sidConfig);
-	if (currentBuilder != NULL)
-	{
-		delete currentBuilder;
-	}
+	m_playerConfig.sidConfig.sidEmulation = NULL;
+	
+	//if (currentBuilder != NULL)
+	//{
+	//	delete currentBuilder;
+	//}
 
 	//change assign to memcpy !
 	m_playerConfig.sidConfig.frequency = newConfig->sidConfig.frequency;
@@ -600,10 +640,6 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 	m_playerConfig.pseudoStereo = newConfig->pseudoStereo;
 	m_playerConfig.sid2Model = newConfig->sid2Model;
 	
-
-	
-	//TODO czy trzeba drugi i trzeci adres sida??????
-
 	//string memory cannot overlap !!!
 	if(m_playerConfig.songLengthsFile != newConfig->songLengthsFile)
 	{
@@ -663,15 +699,16 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 	
     if (rs)
     {		
-		
 		//const SidInfoImpl* si = reinterpret_cast<const SidInfoImpl*>(&m_engine->info());
-		
 		m_playerConfig.sidConfig.sidEmulation = rs;
 		rs->create((m_engine->info()).maxsids());
-		
 
 		rs->filter6581Curve(0.5);
-		rs->filter8580Curve((double)12500);
+		rs->filter8580Curve(0.5);
+		
+		rs->filter6581Range(0.5);	
+		rs->combinedWaveformsStrength(SidConfig::sid_cw_t::STRONG);
+
 		//filter always enabled
 		rs->filter(true);		
 	}
@@ -685,19 +722,22 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 	else
 	{
 		m_playerConfig.sidConfig.secondSidAddress = 0;
-		m_playerConfig.sidConfig.secondSidModel = -1;
+		m_playerConfig.sidConfig.secondSidModel = SidConfig::sid_model_t::MOS8580;
 	}
-	//m_playerConfig.sidConfig.
-	m_engine->config(m_playerConfig.sidConfig);
-
 
 	//kernal,basic,chargen
 	m_engine->setRoms(KERNAL_ROM, BASIC_ROM, CHARGEN_ROM);
 
+	m_engine->config(m_playerConfig.sidConfig);
+
 	//create decode buf for 576 samples
-	if(m_decodeBufLen > 0) delete[] m_decodeBuf;
+	if (m_decodeBufLen > 0)
+	{
+		delete[] m_decodeBuf;
+	}
 	numChann = (m_playerConfig.sidConfig.playback == SidConfig::STEREO)? 2 : 1;
-	m_decodeBufLen = 2 * 576 * (PLAYBACK_BIT_PRECISION >>3) * numChann;
+	//m_decodeBufLen = 3 * 576 * (PLAYBACK_BIT_PRECISION >> 3) * numChann; //2 * 576 * (PLAYBACK_BIT_PRECISION >>3) * numChann;
+	m_decodeBufLen = 6 * 576 * (PLAYBACK_BIT_PRECISION >> 3) * numChann; //2 * 576 * (PLAYBACK_BIT_PRECISION >>3) * numChann;
 	m_decodeBuf = new char[m_decodeBufLen];
 	//open song length database
 	if((m_playerConfig.useSongLengthFile) && (m_playerConfig.songLengthsFile != NULL))
@@ -750,48 +790,32 @@ void CThreadSidPlayer::DoSeek()
 	int numChn = (m_playerConfig.sidConfig.playback == SidConfig::STEREO) ? 2 : 1;
 	int freq = m_playerConfig.sidConfig.frequency;
 	int decodedLen = 0;
-	int timesek = m_seekNeedMs / 1000;
-	if (timesek == 0) return;
+
 
 	if (m_seekNeedMs <= m_playTimems)
 	{
-		timesek = m_seekNeedMs / 1000;
-		if (timesek == 0) return;
 		//seek time is less than current time - we have to rewind song
 		SidTuneInfo *si;
 
 		m_tune.selectSong(m_tune.getInfo()->currentSong());
 		//m_currentTuneLength = m_sidDatabase.length(m_tune);//we know length of tune already
 		m_engine->stop();
-		m_engine->load(&m_tune);//timers are now 0
-	}
-	else
-	{
-		timesek = (m_seekNeedMs - m_playTimems) / 1000;
-		if (timesek <= 0) return;
+		m_engine->load(&m_tune);
+		m_engine->initMixer(m_playerConfig.sidConfig.playback == SidConfig::playback_t::STEREO);
+		m_engine->reset();	//timers are now 0
 	}
 
-	bits = PLAYBACK_BIT_PRECISION;//m_playerConfig.sidConfig.precision;
 	m_engine->fastForward(3200);
-	skip_bytes = (timesek * freq * numChn * (bits >> 3)) >> 5;
-	//m_decodedSampleCount += skip_bytes / numChn / (bps>>3); //not needed
-	while (skip_bytes > m_decodeBufLen)
-	{
-		decodedLen = 2 * m_engine->play(reinterpret_cast<short*>(m_decodeBuf), m_decodeBufLen / 2);
-		skip_bytes -= decodedLen;
-	}
-	/*
-	if (skip_bytes >= 16)
-	{
-		//decodedLen = 2 * m_engine->play(reinterpret_cast<short*>(m_decodeBuf), skip_bytes / 2);
-	}
-	*/
-	//now take time calculationns from emulation engine and calculate other variables
 
-	m_engine->time();
-	m_playTimems = (m_engine->time() * 1000);// / timer->timebase();
+	while (m_engine->timeMs() < m_seekNeedMs)
+	{
+		int x = m_engine->timeMs();
+		decodedLen = sizeof(short) * EmulateAndDecode(m_decodeBufLen / 2, m_decodeBuf, true);
+	}
+	//now take time calculationns from emulation engine and calculate other variables
+	
+	m_playTimems = m_engine->timeMs();
 	m_decodedSampleCount = (m_playTimems * freq) / 1000;
-	//m_playTimems =(m_decodedSampleCount * 1000) / m_playerConfig.sidConfig.frequency;
 	m_engine->fastForward(100);
 	m_seekNeedMs = 0;
 }
@@ -800,45 +824,6 @@ void CThreadSidPlayer::DoSeek()
 void CThreadSidPlayer::SeekTo(int timeMs)
 {
 	m_seekNeedMs = timeMs;
-}
-
-void CThreadSidPlayer::FillSTILData()
-{
-	const int BUFLEN = 160;
-	string strKey;
-	string strInfo;
-	char buf[BUFLEN];
-
-	m.clear();
-	FILE *f;
-	strcpy(buf, m_playerConfig.hvscDirectory);
-	strcat(buf, "\\documents\\stil.txt");
-	f = fopen(buf, "rb+");
-	if (f == NULL)
-	{
-		MessageBoxA(NULL, "Error opening STIL file.\r\nDisable STIL info or choose appropriate HVSC directory", "in_sidplay2", MB_OK);
-		return;
-	}
-	while (feof(f) == 0)
-	{
-		ReadLine(buf, f, 160);
-		strKey.clear();
-		strInfo.clear();
-		if (buf[0] == '/') //new file block
-		{
-			strKey.assign(buf);
-			FixPath(strKey);//.replace("/","\\");
-			ReadLine(buf, f, BUFLEN);
-			while (strlen(buf) > 0)
-			{
-				strInfo.append(buf);
-				strInfo.append("\r\n");
-				ReadLine(buf, f, BUFLEN);
-			}
-			m[_strdup(strKey.c_str())] = _strdup(strInfo.c_str());
-		}
-	}
-	fclose(f);
 }
 
 void CThreadSidPlayer::FillSTILData2()
@@ -951,26 +936,6 @@ void CThreadSidPlayer::FixPath(string& path)
 	}
 }
 
-const char* CThreadSidPlayer::GetSTILData(const char* filePath)
-{
-	map<const char*,char*,ltstr>::iterator i;
-	char* stilFileName;
-
-	if((filePath == NULL)||(m_playerConfig.hvscDirectory == NULL)) return NULL;
-	if(strlen(filePath) < strlen(m_playerConfig.hvscDirectory)) return NULL;
-	stilFileName = new char[strlen(filePath) - strlen(m_playerConfig.hvscDirectory) +1];
-	strcpy(stilFileName,&filePath[strlen(m_playerConfig.hvscDirectory)]);
-	//i = m.find("aa\\DEMOS\\A-F\\Afterburner.sid");
-	i = m.find(stilFileName);
-	delete[] stilFileName;
-	if(i == m.end())
-	{
-		return NULL;
-	}
-	return i->second;
-	//if(i == NULL) return;
-}
-
 const StilBlock* CThreadSidPlayer::GetSTILData2(const char* filePath, int subsong)
 {
 	map<const char*, vector<StilBlock*>, ltstr>::iterator i;
@@ -998,17 +963,6 @@ const StilBlock* CThreadSidPlayer::GetSTILData2(const char* filePath, int subson
 
 void CThreadSidPlayer::ClearSTILData(void)
 {
-	map<const char*, char*,ltstr>::iterator it = m.begin();
-	while(it != m.end())
-	{
-		const char *x= it->first;
-		const char *y= it->second;
-		delete[] it->first;
-		delete[] it->second;
-		++it;
-	}
-	m.clear();
-
 	map<const char*, vector<StilBlock*>, ltstr>::iterator it2 = m_stillMap2.begin();
 	while (it2 != m_stillMap2.end())
 	{
@@ -1027,4 +981,63 @@ void CThreadSidPlayer::ClearSTILData(void)
 	}
 	m_stillMap2.clear();
 
+}
+
+void CThreadSidPlayer::FillSTILData()
+{
+	const int BUFLEN = 160;
+	string strKey;
+	string strInfo;
+	char buf[BUFLEN];
+
+	m.clear();
+	FILE* f;
+	strcpy(buf, m_playerConfig.hvscDirectory);
+	strcat(buf, "\\documents\\stil.txt");
+	f = fopen(buf, "rb+");
+	if (f == NULL)
+	{
+		MessageBoxA(NULL, "Error opening STIL file.\r\nDisable STIL info or choose appropriate HVSC directory", "in_sidplay2", MB_OK);
+		return;
+	}
+	while (feof(f) == 0)
+	{
+		ReadLine(buf, f, 160);
+		strKey.clear();
+		strInfo.clear();
+		if (buf[0] == '/') //new file block
+		{
+			strKey.assign(buf);
+			FixPath(strKey);//.replace("/","\\");
+			ReadLine(buf, f, BUFLEN);
+			while (strlen(buf) > 0)
+			{
+				strInfo.append(buf);
+				strInfo.append("\r\n");
+				ReadLine(buf, f, BUFLEN);
+			}
+			m[_strdup(strKey.c_str())] = _strdup(strInfo.c_str());
+		}
+	}
+	fclose(f);
+}
+
+const char* CThreadSidPlayer::GetSTILData(const char* filePath)
+{
+	map<const char*, char*, ltstr>::iterator i;
+	char* stilFileName;
+
+	if ((filePath == NULL) || (m_playerConfig.hvscDirectory == NULL)) return NULL;
+	if (strlen(filePath) < strlen(m_playerConfig.hvscDirectory)) return NULL;
+	stilFileName = new char[strlen(filePath) - strlen(m_playerConfig.hvscDirectory) + 1];
+	strcpy(stilFileName, &filePath[strlen(m_playerConfig.hvscDirectory)]);
+	//i = m.find("aa\\DEMOS\\A-F\\Afterburner.sid");
+	i = m.find(stilFileName);
+	delete[] stilFileName;
+	if (i == m.end())
+	{
+		return NULL;
+	}
+	return i->second;
+	//if(i == NULL) return;
 }

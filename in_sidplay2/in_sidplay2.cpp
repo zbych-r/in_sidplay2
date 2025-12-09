@@ -90,6 +90,7 @@ void quit() {
 	{
 		sidPlayer->Stop();
 		delete sidPlayer;
+		sidPlayer = NULL;
 	}
 }
 
@@ -110,7 +111,10 @@ int play(const char *fn)
 	std::string str;
 	int i,j;
 	int subsongIndex = 1;
-	if(sidPlayer == NULL) init();
+	if (sidPlayer == NULL)
+	{
+		init();
+	}
 
 	strFilename.assign(fn);
 
@@ -580,7 +584,7 @@ void eq_set(int on, char data[10], int preamp)
 extern In_Module inmod = 
 {
 	IN_VER,	// defined in IN2.H
-	"Winamp SIDPlayer (libsidplayfp) v2.2.0.0"
+	(char*)"Winamp SIDPlayer (libsidplayfp) v3.0.0.0"
 	// winamp runs on both alpha systems and x86 ones. :)
 /*#ifdef __alpha
 	"(AXP)"
@@ -590,7 +594,7 @@ extern In_Module inmod =
 	,
 	0,	// hMainWindow (filled in by winamp)
 	0,  // hDllInstance (filled in by winamp)
-	"SID\0Sid File (*.sid)\0"
+	(char*)"SID\0Sid File (*.sid)\0"
 	// this is a double-null limited list. "EXT\0Description\0EXT\0Description\0" etc.
 	,
 	1,	// is_seekable

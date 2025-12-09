@@ -36,7 +36,6 @@ struct ltstr
 class CThreadSidPlayer
 {
 private:
-	//stdext::hash_map<const char*,char*> m;//,hash<const char*>,eqstr> m;
 	map<const char*, char*, ltstr> m;//,hash<const char*>,eqstr> m;
 	/**! Map - maps file path to vector of subsongs (usually 1) vector contains stuctures with STILL info:	
 	TITLE:
@@ -62,6 +61,10 @@ private:
 	void AssignConfigValue(PlayerConfig *conf, string token, string value);
 	SidDatabase m_sidDatabase;
 	void ReadLine(char* buf,FILE *file,const int maxBuf);
+	/**
+	* Runs emulation and decode samples, returns decoded sample count
+	*/
+	int EmulateAndDecode(int desiredSamples, char* buf, bool seekOnly);
 protected:
 	In_Module* m_inmod;
 	int m_seekNeedMs;	

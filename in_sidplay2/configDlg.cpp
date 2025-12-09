@@ -236,7 +236,8 @@ void UpdateConfig(HWND hWnd)
 	GetDlgItemTextA(hWnd, IDC_PLAYLIST_FORMAT, buf, MAX_BUFFER_SIZE);
 	if (strlen(buf) == 0)
 	{
-		playerConfig->playlistFormat = "";
+		//playerConfig->playlistFormat = "";
+		playerConfig->playlistFormat = NULL;
 	}
 	else
 	{
@@ -247,7 +248,8 @@ void UpdateConfig(HWND hWnd)
 	GetDlgItemTextA(hWnd, IDC_SUBSONG_FORMAT, buf, MAX_BUFFER_SIZE);
 	if (strlen(buf) == 0)
 	{
-		playerConfig->subsongFormat = "";
+		//playerConfig->subsongFormat = "";
+		playerConfig->subsongFormat = NULL;
 	}
 	else
 	{

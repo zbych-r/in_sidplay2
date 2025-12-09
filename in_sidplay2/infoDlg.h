@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sidtune/SidTuneMod.h"
+#include "sidplayfp/SidTuneInfo.h"
 
 
 
