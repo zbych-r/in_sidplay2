@@ -185,6 +185,8 @@ public:
     unsigned int mix(short *buffer, unsigned int samples);
 
     bool reset();
+
+    double getCpuFrequency();
 };
 
 }

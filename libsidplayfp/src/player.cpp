@@ -731,4 +731,9 @@ bool Player::getSidStatus(unsigned int sidNum, uint8_t regs[32])
     return true;
 }
 
+double Player::getCpuFrequency()
+{
+    return m_c64.getMainCpuSpeed();
+}
+
 }

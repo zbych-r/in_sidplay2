@@ -38,6 +38,7 @@ typedef struct tAddSubsongParams
 
 void config(HWND hwndParent)
 {
+	sidPlayer->Stop();
 	DialogBoxParam(inmod.hDllInstance,MAKEINTRESOURCE(IDD_CONFIG_DLG),hwndParent,&ConfigDlgWndProc,NULL);
 	SetFocus(hwndParent);
 }

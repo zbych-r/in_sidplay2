@@ -171,7 +171,7 @@ void CThreadSidPlayer::LoadTune(const char* name)
 DWORD CThreadSidPlayer::Run(void* thisparam)
 {
 	int desiredLen;
-	int decodedLen;
+	int decodedBytesLen;
 	int numChn;
 	int bps;	
 	int dspDataLen = 0;
@@ -191,33 +191,29 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 	freq = playerObj->m_playerConfig.sidConfig.frequency;
 	desiredLen = 576 * (PLAYBACK_BIT_PRECISION >>3) * numChn * (playerObj->m_inmod->dsp_isactive()?2:1);
 
-
 	while(playerObj->m_playerStatus != SP_STOPPED)
 	{
 		if(playerObj->m_inmod->outMod->CanWrite() >= desiredLen)
 		{
 			//decode music data from libsidplay object
 			//libsidplayfp operates on 16 bit samples so we have to multiply od divide by sizeof short when theres is counter in bytes
-			decodedLen = sizeof(short) * playerObj->EmulateAndDecode(desiredLen / 2, playerObj->m_decodeBuf, false);
-
-			//binstream.write(reinterpret_cast<const char*>(playerObj->m_decodeBuf), decodedLen); //for debug
-
+			decodedBytesLen = sizeof(short) * playerObj->EmulateAndDecode(desiredLen / 2, playerObj->m_decodeBuf, false);
 
 			//write it to vis subsystem
 			playerObj->m_inmod->SAAddPCMData(playerObj->m_decodeBuf,numChn,bps,playerObj->m_playTimems);
 			playerObj->m_inmod->VSAAddPCMData(playerObj->m_decodeBuf,numChn,bps,playerObj->m_playTimems);
 
-			playerObj->m_decodedSampleCount += decodedLen / numChn / (bps>>3);
+			playerObj->m_decodedSampleCount += decodedBytesLen / numChn / (bps>>3);
 			playerObj->m_playTimems = playerObj->m_engine->timeMs();
 
 			//use DSP plugin on data
 			if(playerObj->m_inmod->dsp_isactive())
 			{
-				decodedLen = playerObj->m_inmod->dsp_dosamples(reinterpret_cast<short*>(playerObj->m_decodeBuf),
-					decodedLen / numChn / (bps>>3),bps,numChn,freq);
-				decodedLen *= (numChn * (bps>>3));
+				decodedBytesLen = playerObj->m_inmod->dsp_dosamples(reinterpret_cast<short*>(playerObj->m_decodeBuf),
+					decodedBytesLen / numChn / (bps>>3),bps,numChn,freq);
+				decodedBytesLen *= (numChn * (bps>>3));
 			}
-			playerObj->m_inmod->outMod->Write(playerObj->m_decodeBuf,decodedLen);
+			playerObj->m_inmod->outMod->Write(playerObj->m_decodeBuf,decodedBytesLen);
 		}
 		//else
 		//{
@@ -263,6 +259,55 @@ DWORD CThreadSidPlayer::Run(void* thisparam)
 int CThreadSidPlayer::EmulateAndDecode(int desiredSamples, char* buf, bool seekOnly)
 {
 
+	short* bufPtr = reinterpret_cast<short*>(buf);
+	int bytesPerSample = sizeof(short); // 2 bajty
+	int totalShortsToFill = desiredSamples; // Ca³kowita liczba shortów do zapisania
+	int shortsWritten = 0; // Ile ju¿ zapisaliœmy
+
+	bool isStereo = (m_playerConfig.sidConfig.playback == SidConfig::STEREO);
+	int channels = isStereo ? 2 : 1;
+
+	// 3. Obliczenie wspó³czynnika Cykle -> Sample
+	// Wzór: cycles = samples * (cpu_freq / output_freq)
+	const double cpuFreq = m_engine->getCpuFrequency();
+	double outputFreq = static_cast<double>(m_playerConfig.sidConfig.frequency);
+	double cyclesPerSample = cpuFreq / outputFreq;
+	int decodedSamples;
+	int requiredCycles = (totalShortsToFill / channels) * cyclesPerSample;
+
+	// Zabezpieczenie przed pêtl¹ nieskoñczon¹ w przypadku b³êdu
+	if (outputFreq <= 0) return 0;
+
+	int oneStepCycles = 3000;
+	int iterations = requiredCycles / oneStepCycles;
+
+	if (iterations <= 0)
+	{
+		iterations = 1;
+		if (requiredCycles <= 0)
+		{
+			requiredCycles = 50;
+		}
+		oneStepCycles = requiredCycles;
+	}
+
+	for (int i = 0; i < iterations; ++i)
+	{
+		decodedSamples = m_engine->play(oneStepCycles);
+		// mix() zwraca ile ramek faktycznie zmiksowano
+		unsigned int mixedSamples = m_engine->mix(bufPtr, decodedSamples);
+
+		// C. Przesuñ wskaŸniki
+		bufPtr += mixedSamples;
+		shortsWritten += mixedSamples;
+	}
+	return shortsWritten;
+}
+/* previous implementation */
+/*
+int CThreadSidPlayer::EmulateAndDecode(int desiredSamples, char* buf, bool seekOnly)
+{
+
 	const int ONE_STEP_CYCLES = 4000;
 	const int SAMPLE_PER_1000_CYCLES_PER_8KHZ = 8;
 	const int TOTAL_SAMPLE_MULTIPLIER = SAMPLE_PER_1000_CYCLES_PER_8KHZ * (ONE_STEP_CYCLES / 1000); 
@@ -296,6 +341,7 @@ int CThreadSidPlayer::EmulateAndDecode(int desiredSamples, char* buf, bool seekO
 	}
 	return totalDecodedSamples;
 }
+*/
 
 int CThreadSidPlayer::CurrentSubtune(void)
 {
@@ -591,7 +637,6 @@ const PlayerConfig& CThreadSidPlayer::GetCurrentConfig()
 void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 {
 	int numChann;
-	bool openRes;
 
 	if (m_playerStatus != SP_STOPPED)
 	{
@@ -707,7 +752,7 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 		rs->filter8580Curve(0.5);
 		
 		rs->filter6581Range(0.5);	
-		rs->combinedWaveformsStrength(SidConfig::sid_cw_t::STRONG);
+		rs->combinedWaveformsStrength(SidConfig::sid_cw_t::AVERAGE);
 
 		//filter always enabled
 		rs->filter(true);		
@@ -742,8 +787,8 @@ void CThreadSidPlayer::SetConfig(PlayerConfig* newConfig)
 	//open song length database
 	if((m_playerConfig.useSongLengthFile) && (m_playerConfig.songLengthsFile != NULL))
 	{
-		openRes = m_sidDatabase.open(m_playerConfig.songLengthsFile);
-		if(openRes != 0) MessageBoxA(NULL,"Error opening songlength database.\r\nDisable songlength databse or choose other file","in_sidplay2",MB_OK);
+		bool openRes = m_sidDatabase.open(m_playerConfig.songLengthsFile);
+		if(!openRes) MessageBoxA(NULL,"Error opening songlength database.\r\nDisable songlength databse or choose other file","in_sidplay2",MB_OK);
 	}
 	//open STIL file
 	if((m_playerConfig.useSTILfile) && (m_playerConfig.hvscDirectory != NULL))

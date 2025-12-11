@@ -60,7 +60,18 @@ int main()
     //SidTune tune = SidTune(0);
     //tune.load("Waterman.sid");
     SidTune *tune = new SidTune("Waterman.sid");
+    
+    auto md = tune->createMD5();
+    auto md2 = tune->createMD5New();
+
+    char md5[SidTune::MD5_LENGTH + 1];
+    char md52[SidTune::MD5_LENGTH + 1];
+    auto mdx = tune->createMD5(md5);
+    auto md3 = tune->createMD5New(md52);
+
+    tune->createMD5New(md52);
     tune->selectSong(tune->getInfo()->startSong());
+
 
 
     sidplay->config(sc);

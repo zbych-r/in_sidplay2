@@ -265,6 +265,12 @@ public:
      * @since 2.2
      */
     bool getSidStatus(unsigned int sidNum, uint8_t regs[32]);
+
+    /**
+    * Return currently selected CPU frequency
+    */
+    double getCpuFrequency();
+
 };
 
 #endif // SIDPLAYFP_H
