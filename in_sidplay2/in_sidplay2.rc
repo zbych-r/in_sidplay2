@@ -116,7 +116,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,72,124,50,14
     LTEXT           "in_sidplay2 Winamp Module v3.0.0.0",IDC_STATIC,38,7,117,8
     LTEXT           "(c) 2025 Zbigniew Ross",IDC_STATIC,55,19,97,10
-    LTEXT           "Linked with libsidplayfp 2.15",IDC_STATIC,23,54,91,8
+    LTEXT           "Linked with libsidplayfp 2.16",IDC_STATIC,23,54,91,8
     EDITTEXT        IDC_ABOUTED,18,67,157,52,ES_MULTILINE | ES_AUTOHSCROLL | ES_READONLY
     LTEXT           "Licensed under the GNU General Public License (GPL)",IDC_STATIC,16,43,162,8
     LTEXT           "zbych.zr@gmail.com",IDC_STATIC,56,30,66,8
