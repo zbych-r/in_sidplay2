@@ -176,8 +176,6 @@ void Player::initialise()
     }
 
     m_c64.resetCpu();
-
-    m_startTime = m_c64.getTimeMs();
 #if 0
     // Run for some cycles until the initialization routine is done
     for (int j = 0; j < 50; j++)
@@ -186,6 +184,8 @@ void Player::initialise()
     m_mixer.clockChips();
     m_mixer.resetBufs();
 #endif
+
+    m_startTime = m_c64.getTimeMs();
 }
 
 bool Player::load(SidTune *tune)
@@ -570,6 +570,19 @@ c64::model_t Player::c64model(SidConfig::c64_model_t defaultModel, bool forced)
     return model;
 }
 
+SidTuneInfo::model_t getSidModel(SidConfig::sid_model_t sidModel)
+{
+    switch (sidModel)
+    {
+    case SidConfig::MOS6581:
+        return SidTuneInfo::SIDMODEL_6581;
+    case SidConfig::MOS8580:
+        return SidTuneInfo::SIDMODEL_8580;
+    default:
+        return SidTuneInfo::SIDMODEL_UNKNOWN;
+    }
+}
+
 /**
  * Get the SID model.
  *
@@ -632,9 +645,9 @@ void Player::sidRelease()
     m_mixer.clearSids();
 }
 
-void Player::sidCreate(sidbuilder *builder, SidConfig::sid_model_t defaultModel, bool digiboost,
-                        bool forced, const std::vector<unsigned int> &extraSidAddresses, 
-                        SidConfig::sid_model_t secondSidModel, bool forceSecondSidModel)
+void Player::sidCreate(sidbuilder* builder, SidConfig::sid_model_t defaultModel, bool digiboost,
+    bool forced, const std::vector<unsigned int>& extraSidAddresses,
+    SidConfig::sid_model_t secondSidModel, bool forceSecondSidModel)
 {
     if (builder != nullptr)
     {
@@ -644,7 +657,7 @@ void Player::sidCreate(sidbuilder *builder, SidConfig::sid_model_t defaultModel,
         const SidConfig::sid_model_t userModel = getSidModel(tuneInfo->sidModel(0), defaultModel, forced);
 
 
-        sidemu *s = builder->lock(m_c64.getEventScheduler(), userModel, digiboost);
+        sidemu* s = builder->lock(m_c64.getEventScheduler(), userModel, digiboost);
         if (!builder->getStatus()) UNLIKELY
         {
             throw configError(builder->error());
@@ -679,29 +692,29 @@ void Player::sidCreate(sidbuilder *builder, SidConfig::sid_model_t defaultModel,
 
                 //const SidConfig::sid_model_t userModel = getSidModel(tuneInfo->sidModel(i+1), defaultModel, forced);
 
-                sidemu *extraSid = builder->lock(m_c64.getEventScheduler(), userModel, digiboost);
+                sidemu* extraSid = builder->lock(m_c64.getEventScheduler(), userModel, digiboost);
                 if (!builder->getStatus()) UNLIKELY
                 {
                     throw configError(builder->error());
                 }
 
-                if (currentAddr == 0xD400)
-                {
-                    // PSEUDO STEREO DETECTED
-                    // Attach as shadow to the existing bank
-                    m_c64.setShadowSid(extraSid);
+                    if (currentAddr == 0xD400)
+                    {
+                        // PSEUDO STEREO DETECTED
+                        // Attach as shadow to the existing bank
+                        m_c64.setShadowSid(extraSid);
 
-                    // Add to mixer so it produces sound. 
-                    // The mixer will treat it as the next available channel (Right)
-                    m_mixer.addSid(extraSid);
-                }
-                else
-                {
-                    // STANDARD MULTI-SID (Different Address)
-                    if (!m_c64.addExtraSid(extraSid, currentAddr)) UNLIKELY
-                        throw configError(ERR_UNSUPPORTED_SID_ADDR);
-                    m_mixer.addSid(extraSid);
-                }
+                        // Add to mixer so it produces sound. 
+                        // The mixer will treat it as the next available channel (Right)
+                        m_mixer.addSid(extraSid);
+                    }
+                    else
+                    {
+                        // STANDARD MULTI-SID (Different Address)
+                        if (!m_c64.addExtraSid(extraSid, currentAddr)) UNLIKELY
+                            throw configError(ERR_UNSUPPORTED_SID_ADDR);
+                        m_mixer.addSid(extraSid);
+                    }
             }
         }
     }

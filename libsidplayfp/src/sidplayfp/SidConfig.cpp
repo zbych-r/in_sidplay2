@@ -62,5 +62,7 @@ bool SidConfig::compare(const SidConfig &config)
         || rightVolume != config.rightVolume
         || powerOnDelay != config.powerOnDelay
         || samplingMethod != config.samplingMethod
-        || fastSampling != config.fastSampling;
+        || fastSampling != config.fastSampling
+        || forceSecondSidModel != config.forceSecondSidModel
+        || secondSidModel != config.secondSidModel;
 }

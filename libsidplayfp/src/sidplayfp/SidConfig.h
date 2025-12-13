@@ -119,16 +119,6 @@ public:
     bool forceSidModel;
 
     /**
-     * Force the second sid model to #defaultSidModel.
-     */
-    bool forceSecondSidModel;
-
-    /**
-     * Intended second sid model when unknown or forced.
-     */
-    sid_model_t secondSidModel;
-
-    /**
      * Enable digiboost when 8580 SID model is used.
      */
     bool digiBoost;
@@ -194,6 +184,16 @@ public:
      * @return true if different
      */
     bool compare(const SidConfig &config);
+
+    /**
+       * Force the second sid model to 
+       */
+    bool forceSecondSidModel;
+
+    /**
+     * Intended second sid model when unknown or forced.
+     */
+    sid_model_t secondSidModel;
 
 public:
     SidConfig();

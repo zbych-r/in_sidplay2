@@ -161,7 +161,6 @@ unsigned int sidplayfp::mix(short *buffer, unsigned int samples)
 {
     return sidplayer.mix(buffer, samples);
 }
-
 double sidplayfp::getCpuFrequency()
 {
     return sidplayer.getCpuFrequency();

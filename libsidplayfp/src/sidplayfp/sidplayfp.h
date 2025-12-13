@@ -270,7 +270,6 @@ public:
     * Return currently selected CPU frequency
     */
     double getCpuFrequency();
-
 };
 
 #endif // SIDPLAYFP_H
